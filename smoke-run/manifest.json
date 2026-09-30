@@ -1,0 +1,41 @@
+{
+  "pipeline": {
+    "name": "variant-call",
+    "version": "1.0.0",
+    "implementation": "bash",
+    "git_sha": "c5d00bcb40aa84166476e3acd91caab535a184b7",
+    "run_id": "2026-09-30T20:15:22Z-c5d00bc",
+    "started_at": "2026-09-30T20:15:22Z",
+    "finished_at": "2026-09-30T20:16:37Z",
+    "exit_status": "success"
+  },
+  "platform": {
+    "kind": "laptop",
+    "region": "smoke_1mb",
+    "host": "Elyses-MacBook-Air.local",
+    "slurm_job_id": "none",
+    "slurm_cpus": "none",
+    "container": "none"
+  },
+  "reference": {"genome": "/Users/elyseloveman/Downloads/smoke/smoke.fa"},
+  "samples": [
+    {"sample_id": "smoke_01", "library_type": "paired", "condition": "unaffected"},
+    {"sample_id": "smoke_02", "library_type": "paired", "condition": "affected"},
+    {"sample_id": "smoke_03", "library_type": "single", "condition": "affected"}
+  ],
+  "outputs": [
+    {"stage": "analyze", "type": "vcf", "path": "cohort.filtered.vcf.gz", "checksum": "sha256:d0cd81cd3b3455e078d15faf8bf12efa60ac951785e8d8126774747c4d14bc12"},
+    {"stage": "analyze", "type": "vcf_index", "path": "cohort.filtered.vcf.gz.tbi", "checksum": "sha256:9d83d69c116b002c560108492b182d54838ac740292be86307742328d19819f5"},
+    {"stage": "qc_report", "type": "multiqc", "path": "multiqc_report.html", "checksum": "sha256:6043581b6d7e37e59d05458d251545f3d1234adf3ef1c8fd75d4a2a3d6d407b1"}
+  ],
+  "metrics": [],
+  "tools": {
+    "bwa": "0.7.19-r1273",
+    "samtools": "1.24",
+    "bcftools": "1.24",
+    "gatk": "4.7.0.0",
+    "fastqc": "0.12.1",
+    "fastp": "1.3.7",
+    "multiqc": "1.35"
+  }
+}
