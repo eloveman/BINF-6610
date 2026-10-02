@@ -8,4 +8,4 @@ set -euo pipefail
 export APPTAINER_CACHEDIR=/scratch/${USER}/apptainer-cache
 mkdir -p /scratch/${USER}/containers "${APPTAINER_CACHEDIR}"
 apptainer pull --force /scratch/${USER}/containers/variant-call.sif \
-    docker://eloveman1/variant-call@sha256:paste-the-64-characters-here
+    docker://eloveman1/variant-call@sha256:66cf97febd9970f21ab5a8c3cee45f7940e68d4b6875053a56754d1423a9a21d

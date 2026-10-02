@@ -8,7 +8,7 @@ mambaorg/micromamba@sha256:1c62a28916ad7a4533555a542a5410e55ea2ed2c1e29f00c8fc3f
 bwa=0.7.19 samtools=1.24 bcftools=1.24 gatk4=4.6.2.0 fastqc=0.12.1 fastp=1.3.7 multiqc=1.35 git=2.47.1
 
 ## The pushed image
-docker.io/eloveman1/variant-call@sha256:paste-the-64-characters-here
+docker.io/eloveman1/variant-call@sha256:66cf97febd9970f21ab5a8c3cee45f7940e68d4b6875053a56754d1423a9a21d
 
 To rerun this analysis in a year, three things are needed: the same software,
 the same code, and the same inputs. The software is the pushed image, and the
