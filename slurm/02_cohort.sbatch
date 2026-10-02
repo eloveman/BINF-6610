@@ -3,8 +3,8 @@
 #SBATCH --partition=courses
 #SBATCH --account=binf6610.202710
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=8G
-#SBATCH --time=01:00:00
+#SBATCH --mem=4G
+#SBATCH --time=00:30:00
 #SBATCH --export=NONE
 #SBATCH --output=logs/cohort_%j.out
 # Stages 6-9, once, over every sample. submit.sh starts it only after every
