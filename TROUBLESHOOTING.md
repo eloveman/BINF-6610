@@ -129,3 +129,49 @@ line, because it runs the same .command.sh. Inside a real command, such as
 
 **Fix.** Write `\$` for every `$` that bash should see:
 `\$(ls ${reads} | wc -l)`. (Restored with `git checkout modules/fastqc.nf`.)
+
+## 4. A two-minute time limit for HaplotypeCaller on Explorer
+
+**Command.** Before the first Explorer run, inside the explorer profile's
+`process` block in nextflow.config:
+
+    withName: 'HAPLOTYPECALLER' {
+        time = '2m'
+    }
+
+then `sbatch slurm/nextflow.sbatch` (head job 10951079).
+
+**What it printed.** In nf-head-10951079.out, once HaplotypeCaller started:
+
+    ERROR ~ Error executing process > 'HAPLOTYPECALLER (NA12892)'
+
+    Caused by:
+      Process `HAPLOTYPECALLER (NA12892)` terminated with an error exit status (140)
+    ...
+    WARN: Killing running tasks (7)
+
+and in sacct:
+
+    JobID                                    JobName      State    Elapsed  Timelimit ExitCode
+    10951469            nf-HAPLOTYPECALLER_(NA12003) CANCELLED+   00:01:12   00:02:00      0:0
+    10951470            nf-HAPLOTYPECALLER_(NA12892)     FAILED   00:01:12   00:02:00     12:0
+    10951509            nf-HAPLOTYPECALLER_(NA07357) CANCELLED+   00:00:33   00:02:00      0:0
+    10951511            nf-HAPLOTYPECALLER_(NA12873) CANCELLED+   00:00:33   00:02:00      0:0
+    10951512            nf-HAPLOTYPECALLER_(NA12878) CANCELLED+   00:00:32   00:02:00      0:0
+    10951513            nf-HAPLOTYPECALLER_(NA10851) CANCELLED+   00:00:30   00:02:00      0:0
+    10951514            nf-HAPLOTYPECALLER_(NA12891) CANCELLED+   00:00:30   00:02:00      0:0
+
+**What happened.** Exit status 140, not TIMEOUT. Every task's job has
+`#SBATCH --signal B:USR2@30`: Slurm warns the job with USR2 before its time
+limit, and Nextflow stops the task when the warning comes. USR2 is signal
+12, and a process stopped by a signal exits 128 + 12 = 140. sacct records
+the job as FAILED after 1 min 12 s of its 2 min Timelimit, never TIMEOUT.
+GATK's progress log stopped at chr20:2262585, 1.0 minutes into a 10 Mb
+region. Nextflow then cancelled the six other HaplotypeCaller jobs
+(CANCELLED+).
+
+**Fix.** Removed the two-minute block, so HaplotypeCaller is back to the
+`1h` of the `BWA_MEM|HAPLOTYPECALLER` block, and resubmitted (head job
+10951646). -resume reused every task that had finished, and the run carried
+on from HaplotypeCaller: cpus, memory and time are not part of the task
+hash, so the finished tasks were not rerun.
