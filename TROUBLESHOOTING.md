@@ -1,280 +1,131 @@
-# Week 2 — four deliberate failures
+# Troubleshooting — Week 4 (Nextflow)
 
-Each was a separate submission of `slurm/01_persample.sbatch` (and, for
-failure 2, `02_cohort.sbatch`), writing to its own `RUN_ROOT` under
-`/scratch/loveman.e/` so that none of them could touch the real run.
+Four failures caused on purpose. Last week's four are in the Git history.
 
-## 1. `--time=00:02:00`
+## 1. Ctrl-C halfway through a smoke run, then -resume
 
-```
-$ sbatch --time=00:02:00 --array=1 --export=NONE,RUN_ROOT=/scratch/$USER/break1 01_persample.sbatch
-$ sacct -j 10717887 --format=JobID,State,Elapsed,ExitCode
-JobID             State    Elapsed ExitCode
------------- ---------- ---------- --------
-10717887_1      TIMEOUT   00:02:16      0:0
-10717887_1.+  CANCELLED   00:02:19     0:15
-```
+**Command.** A fresh smoke run on the laptop, stopped with Ctrl-C as soon as
+HaplotypeCaller started:
 
-The log stopped in stage 3, partway through alignment:
+    nextflow run main.nf -profile docker \
+        --samplesheet ~/binf6610/smoke-data/smoke/samplesheet.csv \
+        --ref ~/binf6610/smoke-data/smoke/smoke.fa \
+        --region smoke_1mb -ansi-log false
 
-```
-[18:58:41] NA12878: trimmed to 1222355 reads
-[18:58:41] ===== stage 3 : align =====
-slurmstepd: error: *** JOB 10717887 ON c0648 CANCELLED AT 2026-09-30T18:59:55 DUE TO TIME LIMIT ***
-```
+then the same command with `-resume`.
 
-Left on disk: the FastQC reports, both trimmed FASTQs, and an `align/NA12878.raw.bam`
-that bwa was still writing when Slurm killed it, so it is incomplete even though it
-looks like a normal file. There is no sorted BAM and no GVCF. Slurm sends the job a
-signal (exit 0:15, signal 15 = SIGTERM), so the pipeline never reaches its own checks,
-and nothing marks that BAM as broken. A rerun is safe only because stage 3 rewrites
-`raw.bam` from scratch rather than reusing it.
+**What it printed.** The interrupted run had submitted 15 tasks; the last was
+`[98/0dcb4d] Submitted process > HAPLOTYPECALLER (smoke_03)`. The -resume run:
 
-## 2. One task exits 1, with the cohort job on `afterok`
+    [ae/dd0440] Cached process > VALIDATE
+    [23/e11897] Cached process > FASTQC (smoke_03)
+    [d7/faa9c4] Cached process > FASTQC (smoke_02)
+    [95/569df4] Cached process > FASTQC (smoke_01)
+    [5f/de86ae] Cached process > FASTP (smoke_01)
+    [ca/e5a7cb] Cached process > FASTP (smoke_02)
+    [26/08f2c7] Cached process > FASTP (smoke_03)
+    [17/f53fe7] Cached process > BWA_MEM (smoke_01)
+    [fb/90b0ae] Cached process > BWA_MEM (smoke_03)
+    [98/2083a3] Cached process > BWA_MEM (smoke_02)
+    [3c/fd4059] Cached process > MARKDUPLICATES (smoke_03)
+    [30/177dcd] Submitted process > MULTIQC
+    [05/fec027] Submitted process > MARKDUPLICATES (smoke_01)
+    [93/667640] Submitted process > MARKDUPLICATES (smoke_02)
+    [4a/1be7e0] Submitted process > HAPLOTYPECALLER (smoke_03)
+    [93/3bdfa0] Submitted process > HAPLOTYPECALLER (smoke_02)
+    [7d/e40be0] Submitted process > HAPLOTYPECALLER (smoke_01)
+    [b1/89c8a3] Submitted process > JOINT_GENOTYPE
+    [f0/55067f] Submitted process > FILTER
+    [02/9eb2aa] Submitted process > PUBLISH
 
-```
-$ ARR=$(sbatch --parsable --array=2 --export=NONE,FAIL_TASK=2,RUN_ROOT=/scratch/$USER/break2 01_persample.sbatch)
-$ sbatch --dependency=afterok:$ARR --kill-on-invalid-dep=yes --export=NONE,RUN_ROOT=/scratch/$USER/break2 02_cohort.sbatch
-$ sacct -j 10717891,10717892 --format=JobID,JobName,State,ExitCode,Reason
-JobID           JobName      State ExitCode                 Reason
------------- ---------- ---------- -------- ----------------------
-10717891_2   vc-persam+     FAILED      1:0                   None
-10717892      vc-cohort  CANCELLED      0:0             Dependency
-```
+**Which were cached and which ran again.** Cached: the 11 tasks that had
+finished before Ctrl-C — VALIDATE, FASTQC x3, FASTP x3, BWA_MEM x3 and
+MARKDUPLICATES (smoke_03). They kept their task hashes (VALIDATE is
+`ae/dd0440` in both runs). Ran again: the 4 tasks that were still running
+when I pressed Ctrl-C — MULTIQC, MARKDUPLICATES (smoke_01, smoke_02) and
+HAPLOTYPECALLER (smoke_03) — each in a new work folder (MULTIQC 3f/e83059 ->
+30/177dcd, HAPLOTYPECALLER smoke_03 98/0dcb4d -> 4a/1be7e0), plus the 5
+that had not started.
 
-`FAIL_TASK=2` makes task 2 exit 1 on purpose before it runs anything. The cohort job
-was cancelled within seconds with Reason `Dependency` and never started. `afterok`
-means "only if every task succeeded", so once one task failed the dependency could
-never be met, and `--kill-on-invalid-dep=yes` cancelled the job instead of leaving
-it pending. With `afterany` the cohort job would have started anyway and genotyped
-whichever samples happened to have GVCFs.
+**Fix.** Nothing to fix: -resume reused every finished task and reran only
+what had not finished. A task counts as finished only when it exits 0, so
+an interrupted task is never mistaken for a complete one.
 
-## 3. Out-of-range task (`--array=9` against the eight-row samplesheet)
+## 2. The reference given to BWA_MEM as a queue channel
 
-I submitted only task 9 rather than `--array=1-9`: tasks 1–8 would just have been
-a second copy of the real run, and task 9 is the one being tested.
+**Command.** In `main.nf`, stage 3's call only, changed `ref` to a queue channel:
 
-```
-$ sbatch --array=9 --export=NONE,RUN_ROOT=/scratch/$USER/break3 01_persample.sbatch
-$ sacct -j 10717888 --format=JobID,JobName,State,ExitCode
-JobID           JobName      State ExitCode
------------- ---------- ---------- --------
-10717888_9   vc-persam+     FAILED     64:0
-$ cat logs/persample_10717888_9.out
-task 9: no row 9 in /courses/BINF6610.202710/data/samplesheet-variant8.csv
-```
+    BWA_MEM(FASTP.out.reads, channel.fromPath(params.ref), ref_index)
 
-The `awk 'NR == n + 1'` lookup found no row 10 in the file (header + 8 samples), so
-`SAMPLE` was empty, and the guard `[[ -n "${SAMPLE}" ]] || … exit 64` stopped the task
-before it ran anything.
+and ran the smoke dataset:
 
-Without that guard: `run_sample.sh` would have been called with an empty sample name.
-Its `${3:?usage…}` would stop that too, as a second safety net. If both were missing,
-`rows()` treats an empty `SAMPLE` as "every row", so task 9 would have run stages 0–5
-on all eight samples, one after another, rewriting files the other eight tasks were
-writing at the same time, and could still have finished COMPLETED.
+    nextflow run main.nf -profile docker \
+        --samplesheet ~/binf6610/smoke-data/smoke/samplesheet.csv \
+        --ref ~/binf6610/smoke-data/smoke/smoke.fa \
+        --region smoke_1mb --outdir results-failure2 -resume
 
-## 4. `scancel` mid-write, then resubmit
+**What it printed.**
 
-I cancelled the job 20 seconds into stage 5, while HaplotypeCaller was writing the GVCF.
-The folder already held a complete GVCF from an earlier test run at 19:21.
+    [26/08f2c7] FASTP (smoke_03)           | 3 of 3, cached: 3 ✔
+    [98/2083a3] BWA_MEM (smoke_02)         | 1 of 1, cached: 1 ✔
+    [93/667640] MARKDUPLICATES (smoke_02)  | 1 of 1, cached: 1 ✔
+    [93/3bdfa0] HAPLOTYPECALLER (smoke_02) | 1 of 1, cached: 1 ✔
+    [9f/b38de9] JOINT_GENOTYPE             | 1 of 1 ✔
+    [07/93d8b4] FILTER                     | 1 of 1 ✔
 
-```
-$ sacct -j 10726240 --format=JobID,State,Elapsed,ExitCode
-JobID             State    Elapsed ExitCode
------------- ---------- ---------- --------
-10726240_1   CANCELLED+   00:03:42      0:0
+and the VCF's header line had one sample column:
 
-$ ls -la /scratch/$USER/break4/gvcf
--rw-r--r-- 1 loveman.e users 22698130 Sep 30 19:21 NA12878.g.vcf.gz
--rw-r--r-- 1 loveman.e users    10136 Sep 30 19:21 NA12878.g.vcf.gz.tbi
--rw-r--r-- 1 loveman.e users  4651338 Sep 30 22:29 NA12878.partial.g.vcf.gz
-```
+    #CHROM POS ID REF ALT QUAL FILTER INFO FORMAT smoke_02
 
-The cancel left a 4.6 MB `NA12878.partial.g.vcf.gz` with no index, but the finished
-22.7 MB GVCF from 19:21 was untouched. Stage 5 writes to `*.partial.g.vcf.gz` and only
-renames it to `*.g.vcf.gz` after checking it and its index exist, so a half-written
-file never gets the name that stage 6 reads.
+**How many samples BWA_MEM ran, and what stopped the run.** BWA_MEM ran one
+sample of three, smoke_02. Nothing stopped the run: every line ended in ✔
+and it published a VCF with one sample. `channel.fromPath` made the
+reference a queue channel with one item, and the first sample to reach
+BWA_MEM used it up, so smoke_01 and smoke_03 never ran. The only sign was
+`1 of 1` where FASTP said `3 of 3`.
 
-Then I resubmitted the same job:
+**Fix.** Put back `BWA_MEM(FASTP.out.reads, ref, ref_index)`, where
+`ref = file(params.ref)` is a value channel that every sample reads
+(`git checkout main.nf`).
 
-```
-$ sacct -j 10726279 --format=JobID,State,Elapsed,ExitCode
-JobID             State    Elapsed ExitCode
------------- ---------- ---------- --------
-10726279_1    COMPLETED   00:07:34      0:0
+## 3. A missing backslash before $( in a script block
 
-$ ls -la /scratch/$USER/break4/gvcf
--rw-r--r-- 1 loveman.e users 22698181 Sep 30 22:38 NA12878.g.vcf.gz
--rw-r--r-- 1 loveman.e users    10189 Sep 30 22:38 NA12878.g.vcf.gz.tbi
-```
+**Command.** My FASTP and BWA_MEM have no `\$(…)`, so I added one line to
+FASTQC's script block, with the backslash taken off its `$`. The correct
+line would be:
 
-The rerun did not trust what was left behind. Every stage rewrites its outputs, and
-stage 5 deletes any old `.partial` file before starting, so the leftover was removed
-and a new complete GVCF written at 22:38.
+    echo "${meta.id}: \$(ls ${reads} | wc -l) FASTQ file(s)" >&2
 
-## Use of AI (week 2)
+I wrote it as `$(ls ${reads} | wc -l)` and ran the smoke dataset:
 
-I used Claude (Anthropic) to restructure my week-1 pipeline into `lib/common.sh`,
-one file per stage, `run_sample.sh` and the four `slurm/` files, and to explain each
-part. Claude also suggested the `FAIL_TASK` switch and the `.partial` file name for
-the deliberate failures. I tested the restructured pipeline on the smoke dataset on
-my laptop, ran the cohort and all four failures on Explorer myself, and took every
-number and log line above from my own jobs.
+    nextflow run main.nf -profile docker \
+        --samplesheet ~/binf6610/smoke-data/smoke/samplesheet.csv \
+        --ref ~/binf6610/smoke-data/smoke/smoke.fa \
+        --region smoke_1mb --outdir results-failure3 -resume -ansi-log false
 
-# Week 3 — four deliberate failures (container)
+**What it printed.** Nothing failed. The three FASTQC tasks ran
+(`[37/5e0932] Submitted process > FASTQC (smoke_01)`) and the run finished.
+In smoke_01's work folder, work/37/5e0932…:
 
-## 1. Unpinned rebuild: `FROM ubuntu` with no tag
+    $ cat .command.sh
+    #!/bin/bash -euo pipefail
+    fastqc -q -t 1 smoke_01_R1.fastq.gz smoke_01_R2.fastq.gz > smoke_01.fastqc.log 2>&1
+    echo "smoke_01: smoke_01_R1.fastq.gz smoke_01_R2.fastq.gzls  | wc -l) FASTQ file(s)" >&2
 
-In a scratch folder outside the repository, `~/w3-break1`, a Dockerfile with nothing pinned:
+    $ cat .command.err
+    smoke_01: smoke_01_R1.fastq.gz smoke_01_R2.fastq.gzls  | wc -l) FASTQ file(s)
 
-```
-FROM ubuntu
-RUN apt-get update && apt-get install -y curl
-```
+    $ bash .command.run
+    smoke_01: smoke_01_R1.fastq.gz smoke_01_R2.fastq.gzls  | wc -l) FASTQ file(s)
 
-First build, earlier on 2 October:
+**What happened.** I aimed at a failed task and got a task that succeeded
+and printed the wrong thing. Nextflow read the unescaped `$(` itself, before
+bash saw the script: .command.sh has no `$(` left, and the file names from
+`${reads}` are pasted in front of `ls`. bash never ran a command
+substitution; it ran echo on a scrambled string, which exits 0.
+`bash .command.run` reran the task in its container and printed the same
+line, because it runs the same .command.sh. Inside a real command, such as
+`n=$(gzip -dc … | wc -l)`, this would give a wrong value with no error.
 
-```
-$ docker build --platform linux/amd64 -t break1:day1 .
- => [1/2] FROM docker.io/library/ubuntu:latest@sha256:3595d7fc4286a33fad0…
-$ docker run --rm --platform linux/amd64 break1:day1 dpkg -l > day1.txt
-```
-
-Second build, with both flags so nothing came from the cache, at 12:39 EDT the same day:
-
-```
-$ docker build --platform linux/amd64 --pull --no-cache -t break1:day2 .
-#5 [1/2] FROM docker.io/library/ubuntu:latest@sha256:3595d7fc4286a33fad0fd853a4063e654287a9c3787437d7937c94ca3f7a804e
-$ docker run --rm --platform linux/amd64 break1:day2 dpkg -l > day2.txt
-$ wc -l day1.txt day2.txt
-     122 day1.txt
-     122 day2.txt
-$ diff day1.txt day2.txt
-$
-```
-
-**I aimed at** two different package lists and **got** two identical ones: no line
-differs. The reason is that I had to run both builds on the same day, a few hours
-apart, rather than a day apart. `--pull` really did ask Docker Hub again, but
-`ubuntu:latest` still pointed at the same image (`sha256:3595d7fc…804e` both times),
-and the Ubuntu archive had published no new versions of these 122 packages in
-between. Nothing in this recipe *stops* them from changing: on another day `latest`
-moves to a new image and `apt-get install` resolves whatever versions are current,
-so the same Dockerfile silently builds different software.
-
-**Fix:** pin everything, as `containers/Dockerfile` does: a tagged base image
-(`mambaorg/micromamba:2.0.5-ubuntu24.04`, recorded by digest in `IMAGE.md`) and an
-`=version` on every tool, so a rebuild resolves to the same versions.
-
-## 2. No `--bind`
-
-I made a copy of `01_persample.sbatch` without the `--bind` line and ran one sample:
-
-```
-$ sed '/--bind/d' 01_persample.sbatch > break_nobind.sbatch
-$ sbatch --array=1 --export=NONE,RUN_ROOT=/scratch/$USER/w3-break2 break_nobind.sbatch
-$ sacct -j 10761215 --format=JobID,State,Elapsed,ExitCode
-10761215_1       FAILED   00:00:05     65:0
-$ tail logs/persample_10761215_1.out
-task 1: NA12878 on c0642, 8 cores, image /scratch/loveman.e/containers/variant-call.sif
-error: no samplesheet at /courses/BINF6610.202710/data/samplesheet-variant8.csv
-```
-
-It stopped after 5 seconds with exit code 65, before stage 0 began. The path the
-container could not see was `/courses/BINF6610.202710/data/samplesheet-variant8.csv`.
-Outside the container the job script read that same file fine (it found `NA12878` on
-row 1), but inside, without `--bind`, the container only sees my home directory,
-`/tmp` and the submit folder, so `/courses` does not exist there. My pipeline checks
-the samplesheet before anything else and stopped with an error rather than running
-on nothing.
-
-**Fix:** keep `--bind /courses/BINF6610.202710,/scratch/${USER}`, which adds the
-course data and my run folder.
-
-## 3. No `--env THREADS`
-
-A copy of `01_persample.sbatch` without the `--env THREADS` line, one sample, with
-the job still asking for 8 cores:
-
-```
-$ sed '/--env THREADS/d' 01_persample.sbatch > break_nothreads.sbatch
-$ sbatch --array=1 --export=NONE,RUN_ROOT=/scratch/$USER/w3-break3 break_nothreads.sbatch
-$ sacct -j 10761217 --format=JobID,State,Elapsed,ExitCode
-10761217_1    COMPLETED   00:08:23      0:0
-```
-
-It finished with no error. Only the logs show what went wrong:
-
-```
-$ grep "CMD:" /scratch/$USER/w3-break3/logs/NA12878.bwa.log
-[main] CMD: bwa mem -t 4 -R @RG\tID:NA12878\tSM:NA12878 …
-$ grep -i thread /scratch/$USER/w3-break3/logs/NA12878.haplotypecaller.log
-16:17:19.740 INFO  IntelPairHmm - Available threads: 8
-16:17:19.740 INFO  IntelPairHmm - Requested threads: 4
-```
-
-The same sample in the real containerised run:
-
-```
-[main] CMD: bwa mem -t 8 -R @RG\tID:NA12878\tSM:NA12878 …
-16:14:53.058 INFO  IntelPairHmm - Available threads: 8
-16:14:53.058 INFO  IntelPairHmm - Requested threads: 8
-```
-
-I asked for **8 cores** and the pipeline used **4**: bwa ran with `-t 4`, and GATK
-saw 8 threads available but was asked for 4. `--cleanenv` dropped the `THREADS` the
-job script set, so `lib/common.sh` fell back to its default, `THREADS=${THREADS:-4}`.
-Half the cores I reserved sat idle, and nothing failed.
-
-**Fix:** keep `--env THREADS="${THREADS}"`, so the value from `SLURM_CPUS_PER_TASK`
-reaches the tools inside the container.
-
-## 4. An arm64 image on Explorer
-
-On a compute node (`srun`), with the cache on `/scratch`:
-
-```
-$ apptainer pull --arch arm64 arm.sif docker://ubuntu:24.04
-INFO:    Converting OCI blobs to SIF format
-…
-INFO:    Creating SIF file...
-$ apptainer exec arm.sif uname -m
-FATAL:   While checking container encryption: could not open image /scratch/loveman.e/arm.sif: the image's architecture (arm64) could not run on the host's (amd64)
-srun: error: c0638: task 0: Exited with exit code 255
-```
-
-**The pull succeeded**: Apptainer downloaded and converted the arm64 image without
-any warning. **The run failed** at once, because Explorer's CPUs are amd64 and cannot
-execute arm64 programs. A wrong-architecture image only reveals itself when you try
-to run it.
-
-**Fix:** build with `--platform linux/amd64` and check before pushing:
-`docker image inspect --format '{{.Architecture}}' eloveman1/variant-call:1.0`
-printed `amd64` for my image.
-
-## Also: a real failure, not on purpose — micromamba under emulation
-
-My first `docker build --platform linux/amd64` of `containers/Dockerfile` on my
-Apple Silicon laptop failed in under a second:
-
-```
-0.783 Unexpected error 9 on netlink descriptor 16.
-bash: line 1:     7 Aborted                 micromamba install --yes --name base …
-ERROR: failed to build: … exit code: 134
-```
-
-The Dockerfile was fine. Building an amd64 image on an arm64 Mac means Docker
-emulates an Intel CPU, and its default emulator (QEMU) does not support a network
-call micromamba makes when it starts, so micromamba aborted before downloading
-anything. **Fix:** Docker Desktop → Settings → General → *Use Rosetta for
-x86_64/amd64 emulation on Apple Silicon*, then rebuild. The micromamba step then
-ran in 38 seconds, and the image reported `amd64`.
-
-## Use of AI (week 3)
-
-I used Claude (Anthropic) to write `containers/Dockerfile`, `slurm/pull.sbatch`, the
-`apptainer exec` changes to both job scripts and `IMAGE.md`, to explain each part,
-and to diagnose the micromamba build error. I built and pushed the image, ran the
-cohort and all four breakages myself, and every command and output above is from
-my own laptop and my own Explorer jobs.
+**Fix.** Write `\$` for every `$` that bash should see:
+`\$(ls ${reads} | wc -l)`. (Restored with `git checkout modules/fastqc.nf`.)
