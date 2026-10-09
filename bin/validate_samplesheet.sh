@@ -12,10 +12,15 @@ problems=0
 
 log() { echo "[validate] $*" >&2; }
 
-# data rows: no header, no Windows line endings, no blank lines
-rows() { tail -n +2 "$sheet" | tr -d '\r' | grep -v '^[[:space:]]*$' || true; }
+# data rows, as sample_id,library_type,r1_fastq,r2_fastq — found by column
+# name in the header, so extra columns, in any order, do not matter
+rows() {
+    tr -d '\r' < "$sheet" | awk -F, '
+        NR == 1 { for (i = 1; i <= NF; i++) col[$i] = i; next }
+        NF > 0  { print $col["sample_id"] "," $col["library_type"] "," $col["r1_fastq"] "," $col["r2_fastq"] }'
+}
 
-while IFS=, read -r id cond rep lt r1 r2; do
+while IFS=, read -r id lt r1 r2; do
     [[ -n "$id" ]] || { log "a row has no sample_id"; problems=$(( problems + 1 )); continue; }
 
     # the samplesheet's paths do not exist in here; the files' names do
