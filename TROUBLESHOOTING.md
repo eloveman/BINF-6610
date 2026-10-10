@@ -175,3 +175,21 @@ region. Nextflow then cancelled the six other HaplotypeCaller jobs
 10951646). -resume reused every task that had finished, and the run carried
 on from HaplotypeCaller: cpus, memory and time are not part of the task
 hash, so the finished tasks were not rerun.
+
+## AI disclosure
+
+I used Claude (Anthropic) as an assistant throughout this assignment. It:
+
+- explained the assignment, the lecture's Nextflow concepts, and what each
+  command and line of code does, with where each part came from (my week-1
+  stage scripts, the assignment text, or the lecture slides);
+- helped set up Nextflow and Docker on my laptop;
+- drafted the ten processes in `modules/`, `main.nf`, and
+  `bin/validate_samplesheet.sh` by adapting the commands and settings from my
+  own `stages/00`–`07` scripts. 
+- helped diagnose an Apptainer image-conversion failure on Explorer (fixed by
+  clearing the Apptainer cache and resubmitting);
+- gave direction for the four deliberate failures.
+
+I ran every command, on my laptop and on Explorer. All the output, task
+hashes, job IDs, sacct records and checksums in this file are from my runs.
