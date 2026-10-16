@@ -7,7 +7,8 @@
 set -euo pipefail
 
 sheet="$1"
-REF="$(basename "$2")"
+REF="$2"
+SHEET_DIR="$(cd "$(dirname "$1")" && pwd)"
 problems=0
 
 log() { echo "[validate] $*" >&2; }
@@ -24,8 +25,8 @@ while IFS=, read -r id lt r1 r2; do
     [[ -n "$id" ]] || { log "a row has no sample_id"; problems=$(( problems + 1 )); continue; }
 
     # the samplesheet's paths do not exist in here; the files' names do
-    if [[ -n "$r1" ]]; then r1=$(basename "$r1"); fi
-    if [[ -n "$r2" ]]; then r2=$(basename "$r2"); fi
+    if [[ -n "$r1" ]]; then [[ "$r1" == /* ]] || r1="${SHEET_DIR}/$r1"; fi
+    if [[ -n "$r2" ]]; then [[ "$r2" == /* ]] || r2="${SHEET_DIR}/$r2"; fi
 
     # the layout is one the pipeline knows
     if [[ "$lt" != paired && "$lt" != single ]]; then
