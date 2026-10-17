@@ -75,3 +75,42 @@ It named the first trimmed file it needed, `smoke_01`'s R1.
 
 **Fix.** Put the constraints back: `sample=one_of(PAIRED)` on `fastp_paired` and
 `sample=one_of(SINGLE)` on `fastp_single`, so each sample matches exactly one rule.
+
+## 4 · The first Explorer run without Apptainer
+
+**Command.** `software-deployment-method: apptainer` deleted from
+`profiles/explorer/profile.yaml`, then `sbatch slurm/snakemake.sbatch` (head job 11138220).
+
+**What it printed.** The head job's log said only that Slurm jobs had failed:
+
+    Error in rule fastp_paired:
+        message: SLURM-job '11138264' failed, SLURM status is: 'FAILED'. Reason: Unknown.
+
+The first rule to fail was `fastp_paired`, on NA12878. The other `fastp_paired`,
+`fastp_single` and `fastqc` jobs failed the same way. That job's own Slurm log,
+`.snakemake/slurm_logs/rule_fastp_paired/NA12878/11138264.log`, gives the exit status:
+
+    Command 'set -euo pipefail;  (fastp -w 4 -i ... ) 2> logs/fastp/NA12878.log' returned non-zero exit status 127.
+
+and the rule's own log, `logs/fastp/NA12878.log`, says why:
+
+    /usr/bin/bash: line 1: fastp: command not found
+
+`logs/fastqc/NA12878.log` says the same for `fastqc`. Exit status 127 is the shell's code
+for "command not found". `sacct` reports these jobs as `1:0`, not 127, because the Slurm
+job is a Snakemake process wrapping the command, and it exits with 1 whenever its rule
+fails. Only the job's own log has the 127.
+
+**Why.** Without Apptainer each rule runs directly on a compute node, and the course
+environment the head job activates has Snakemake but not the bioinformatics tools. So
+every rule that calls a tool fails. `validate` succeeded, because
+`validate_samplesheet.sh` only needs `awk` and `gzip`, which every node has.
+
+**Fix.** Put the line back (`git checkout profiles/explorer/profile.yaml`) and submit the
+same head job again. `snakemake -n` first showed that `validate`, although it had finished,
+would run again:
+
+    reason: Software environment definition has changed since last execution
+
+The first run had used no image for `validate`, and this one uses the `tools` image, so
+Snakemake reruns it. All 46 jobs ran in the second head job, 11138471.
