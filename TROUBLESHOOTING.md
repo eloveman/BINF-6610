@@ -114,3 +114,11 @@ would run again:
 
 The first run had used no image for `validate`, and this one uses the `tools` image, so
 Snakemake reruns it. All 46 jobs ran in the second head job, 11138471.
+
+## AI disclosure
+
+I used Claude (Anthropic's AI assistant) to help with this assignment. It helped me set up
+Snakemake, wrote `bin/check_mapped.sh` and the fix to `bin/validate_samplesheet.sh`,
+drafted the Snakefile's rules from my week-1 scripts and the course demo, and drafted the
+four failure write-ups from the output I captured. I ran every command and pipeline run
+myself, on my laptop and on Explorer, and checked each step before moving on.
