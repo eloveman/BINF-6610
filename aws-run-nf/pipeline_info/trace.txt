@@ -1,0 +1,21 @@
+task_id	name	status	exit	container	native_id	realtime	%cpu	peak_rss
+1	VALIDATE	COMPLETED	0	wave.seqera.io/wt/491a9689ff32/library/coreutils_gawk_gzip:7c58ccc2f9ca6bcc	185f8b89-1cd2-4b5c-99db-c64ef1106b4a	2.2s	89.9%	7.3 MB
+4	FASTP (smoke_02)	COMPLETED	0	wave.seqera.io/wt/4741a82819ab/library/fastp:1.3.7--075357a9d5c82494	1e65dc06-fb1a-4bc1-a1e5-e3606a822459	5s	95.6%	1.1 GB
+3	FASTQC (smoke_01)	COMPLETED	0	wave.seqera.io/wt/0952d56bfa20/biocontainers/fastqc:0.12.1--hdfd78af_0	2e94ebd3-c2d5-49be-90cd-e623c834b1f8	11s	86.1%	163.4 MB
+7	FASTQC (smoke_03)	COMPLETED	0	wave.seqera.io/wt/0952d56bfa20/biocontainers/fastqc:0.12.1--hdfd78af_0	f4f3ecd2-98b0-42b3-880b-ea3bc5ff485e	6s	81.3%	161.5 MB
+6	FASTQC (smoke_02)	COMPLETED	0	wave.seqera.io/wt/0952d56bfa20/biocontainers/fastqc:0.12.1--hdfd78af_0	d971c53a-85cb-4fd9-868a-8f5bc41b6232	10s	90.2%	176.3 MB
+5	FASTP (smoke_03)	COMPLETED	0	wave.seqera.io/wt/4741a82819ab/library/fastp:1.3.7--075357a9d5c82494	456434b2-3eb5-41bb-8644-e6d95417a43f	9.8s	94.7%	830.8 MB
+2	FASTP (smoke_01)	COMPLETED	0	wave.seqera.io/wt/4741a82819ab/library/fastp:1.3.7--075357a9d5c82494	f2f63f51-88dc-46c2-8a33-3698d07ec098	4.9s	95.3%	1.1 GB
+8	BWA_MEM (smoke_02)	COMPLETED	0	wave.seqera.io/wt/0671d7e21eaf/library/bwa_samtools:22527ddb3cc80fb3	63ed6db9-79f0-4894-bd13-7b1f0f4be6ce	21.8s	92.5%	103.9 MB
+9	BWA_MEM (smoke_03)	COMPLETED	0	wave.seqera.io/wt/0671d7e21eaf/library/bwa_samtools:22527ddb3cc80fb3	b89f192a-5c8c-4f05-b654-a72c0a4ec223	6.7s	91.6%	47.6 MB
+10	BWA_MEM (smoke_01)	COMPLETED	0	wave.seqera.io/wt/0671d7e21eaf/library/bwa_samtools:22527ddb3cc80fb3	89d5f6d2-79f3-4d86-9e25-f6d3f0740d27	21.2s	94.8%	103.7 MB
+11	MULTIQC	COMPLETED	0	wave.seqera.io/wt/5b08a9731d4d/biocontainers/multiqc:1.35--pyhdfd78af_2	f7496681-e36c-448c-8cec-9e1beb07dd7e	3.6s	84.9%	205.4 MB
+12	MARKDUPLICATES (smoke_02)	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	a6e42182-08d2-43d5-8629-d6a574897855	15.8s	95.9%	497.9 MB
+13	MARKDUPLICATES (smoke_03)	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	6ed45fe9-45a1-413d-87d3-0f88fa120ce6	10.3s	95.2%	417.3 MB
+14	MARKDUPLICATES (smoke_01)	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	93f9bd59-191d-4394-b925-28717de27e00	15.5s	96.0%	487.9 MB
+15	HAPLOTYPECALLER (smoke_02)	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	6d850ae0-eed6-4b7f-8a1a-a1e4bf036ff4	1m 14s	99.3%	345.9 MB
+16	HAPLOTYPECALLER (smoke_03)	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	8d0b50b9-e401-4bc5-8644-54a807ed6892	59.8s	99.4%	448.9 MB
+17	HAPLOTYPECALLER (smoke_01)	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	23e807f1-1eff-4d09-b8f7-7f12debf56f1	1m 18s	99.1%	403.9 MB
+18	JOINT_GENOTYPE	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	5ccf1080-317c-425b-8255-b735891015a3	1m 6s	97.0%	287.2 MB
+19	FILTER	COMPLETED	0	wave.seqera.io/wt/855828256c3a/library/gatk4_samtools_bcftools:1adede7d418fb46b	698bf7d6-5b33-455c-a5ef-e1df0b4f5914	7.9s	96.0%	259.3 MB
+20	PUBLISH	COMPLETED	0	wave.seqera.io/wt/491a9689ff32/library/coreutils_gawk_gzip:7c58ccc2f9ca6bcc	667ebb37-be2e-4349-930b-6476d1b0b30b	144ms	62.5%	3.3 MB
