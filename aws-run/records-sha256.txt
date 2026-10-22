@@ -1,3 +1,2 @@
 41e7c5b336bbcd858f05f4766b834d6d236372e7519fe8a9e9293f9e5ed8a5db  -
 41e7c5b336bbcd858f05f4766b834d6d236372e7519fe8a9e9293f9e5ed8a5db  -
-They differ because the week-1 laptop run used tool versions from Homebrew/conda, while the Batch run used the versions pinned in the week-3 image (bcftools 1.24, GATK 4.6.2.0, bwa 0.7.19), and small version differences change calling and filtering at a few sites.
