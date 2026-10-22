@@ -21,3 +21,6 @@ how the image was made, but rebuilding from it would not be byte-identical,
 because everything not pinned is resolved again on build day. The code is the
 commit recorded as `git_sha` in `cluster-run-container/manifest.json`, and the
 inputs are the samplesheet and the GRCh38 reference it names.
+
+## The image in ECR
+<account>.dkr.ecr.us-east-2.amazonaws.com/variant-call@sha256:3c97347cd03ff4d5b2f7f9d21620f475a95d21fd57ac8f48268ddb5e500b08b2
