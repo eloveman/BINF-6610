@@ -1,5 +1,5 @@
 """Assignment 10: a Dash app over the week-9 runs database.
-
+AI was used in the completion of this assignment
 Usage:  python3 dashboard/app.py runs.db [port]
 """
 import os
@@ -16,10 +16,7 @@ DB = sys.argv[1]
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8050
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# ---------------------------------------------------------------------------
-# SQL for the results page. ADAPT THESE TWO QUERIES to the table and column
-# names in your db/schema.sql. Each takes the run id as its one parameter (?).
-# ---------------------------------------------------------------------------
+
 SAMPLES_SQL = """
 SELECT rs.sample_id, rs.condition, s.phenotype, s.is_synthetic_phenotype
 FROM run_samples AS rs
